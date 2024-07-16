@@ -5,6 +5,7 @@ import IssueQueueItem from '@/components/IssueQueueItem.vue';
 import LabelCheckbox from '@/components/widgets/LabelCheckbox.vue';
 import { useUserStore } from '@/stores/UserStore';
 import { FlawClassificationStateEnum } from '@/generated-client';
+import EditableDate from '@/components/widgets/EditableDate.vue';
 
 const userStore = useUserStore();
 
@@ -50,6 +51,10 @@ const filteredStates = computed(() => {
     .join(',');
 });
 
+const dateFilter = ref<'none' | 'days-7' | 'days-14' | 'custom'>('none');
+const dateFilterCustomStart = ref('');
+const dateFilterCustomEnd = ref('');
+
 const params = computed(() => {
   const paramsObj: Record<string, any> = {};
 
@@ -61,6 +66,22 @@ const params = computed(() => {
 
   if (isOpenIssuesSelected.value) {
     paramsObj.workflow_state = filteredStates.value;
+  }
+
+  if (dateFilter.value === 'days-7') {
+    paramsObj['updated_dt__date__gte'] = DateTime.now().minus({days: 7}).toISODate();
+  }
+  if (dateFilter.value === 'days-14') {
+    paramsObj['updated_dt__date__gte'] = DateTime.now().minus({days: 14}).toISODate();
+    paramsObj['updated_dt__date__lte'] = DateTime.now().minus({days: 7}).toISODate();
+  }
+  if (dateFilter.value === 'custom') {
+    if (dateFilterCustomStart.value !== '') {
+      paramsObj['updated_dt__date__gte'] = dateFilterCustomStart.value.substring(0, 'yyyy-mm-dd'.length);
+    }
+    if (dateFilterCustomEnd.value !== '') {
+      paramsObj['updated_dt__date__lte'] = dateFilterCustomEnd.value.substring(0, 'yyyy-mm-dd'.length);
+    }
   }
 
   const sortOrderPrefix = isSortedByAscending.value ? '' : '-';
@@ -172,6 +193,26 @@ const nameForOption = (fieldName: string) => {
         label="Default Filter"
         class="d-inline-block"
       />
+      <div class="osim-date-range-filter d-inline-block ms-3">
+        <label class="d-inline-block">
+          <select v-model="dateFilter">
+            <option value="none">No date filter</option>
+            <option value="days-7">Since last week</option>
+            <option value="days-14">2 weeks ago</option>
+            <option value="custom">Custom date range</option>
+          </select>
+        </label>
+        <div v-if="dateFilter === 'custom'" class="d-inline-block ms-3">
+          <div class="d-inline-block">
+            From:
+            <EditableDate v-model="dateFilterCustomStart" class="d-inline-block" :includesTime="false"/>
+          </div>
+          <div class="d-inline-block">
+            To:
+            <EditableDate v-model="dateFilterCustomEnd" class="d-inline-block" :includesTime="false"/>
+          </div>
+        </div>
+      </div>
       <div v-if="isLoading" class="d-inline-block float-end">
         <span
           class="spinner-border spinner-border-sm"
